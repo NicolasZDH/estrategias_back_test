@@ -11,12 +11,36 @@ class back_test():
         self.p_type = price_type        # Adj Close, Close, Open
         self.shares = shares
 
-    def indicadores(self):
-        rentabilidade = (((self.RESULT['pl'].iloc[-1] / self.RESULT['pl'].iloc[0]) - 1)* 100)
+    def indicadores(self, benchmark):
+        # CDI
+        cdi = pd.read_excel("C:\\Nícolas\\FEA.dev\\fundo_quanti\\CDI.xlsx", index_col=0, header=None)
+        # INDEX TO DATETIME
+        self.RESULT.index = pd.to_datetime(self.RESULT.index)
+        cdi.index = pd.to_datetime(cdi.index)
+        cdi = cdi[cdi.index >= self.RESULT.index[0]]
+        tx_livre_risco = (cdi[1][-1]/cdi[1][0] - 1) * 100
+
+        # RENTABILIDADE ESTRATEGIA
+        rentabilidade = (((self.RESULT['pl'].iloc[-1] / self.RESULT['pl'].iloc[0]) - 1) * 100)
         print("\nrentabilidade estrategia: {:.2f}%".format(rentabilidade))
+
+        # RENTABILIDADE ACAO
         print("rentabilidade share: {:.2f}%".format(((self.RESULT['Adj Close'].iloc[-1] / self.RESULT['Adj Close'].iloc[0]) - 1) * 100))
+
+        # ALPHA
         print("alpha: {:.2f}%".format(
             ((rentabilidade / 100) / (self.RESULT['Adj Close'].iloc[-1] / self.RESULT['Adj Close'].iloc[0]) - 1) * 100))
+        # SHARPE RATIO (retorno do fundo - retorno tx livre de risco)/risco fundo
+        risco = self.RESULT['pl'].pct_change().std()
+        sharpe = (rentabilidade - tx_livre_risco)/risco
+        print("Sharpe Ratio: ", sharpe)
+        # SHARPE MODIFICADO
+        sharper_m = (rentabilidade - (((benchmark['Adj Close'][-1]/benchmark['Adj Close'][-1])-1)*100))/risco
+        print("Sharpe Modificado: ", sharper_m)
+        # INDICE TREYNOR
+        # DRAW DOWN
+        # BENCHMARK
+
 
     def run_bt(self):
         # SHARE HISTORICAL SERIES
@@ -85,17 +109,23 @@ class back_test():
         return rentabilidade
 
 def main():
+    dt_ini = '2018-12-31'
+    dt_fim = '2019-12-31'
     # SET STRATEGY
-    stg = pt(0.88, 0.88, 2.1, 2.4, -2)
+    stg = pt(1.45, 14.17, -49.34, 53.24, -20.04)
 
     # SHARES
-    sh_azul = sh('2016-01-01', '2019-12-31', "AZUL4.SA")
+    sh_azul = sh(dt_ini, dt_fim, "AZUL4.SA")
     SHARES = sh_azul.data()
 
-    # RUN BACKTEST
-    bt = back_test(SHARES, stg, frequency=1)
+    # BENCH MARK
+    sh_ibov = sh(dt_ini, dt_fim, "^BVSP")
+    BENCH = sh_ibov.data()
+
+    # RUN BACK TEST
+    bt = back_test(SHARES, stg, frequency=2)
     bt.run_bt()
-    bt.indicadores()
+    bt.indicadores(BENCH)
 
 if __name__ == '__main__':
     main()
